@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Putt Caddie">
+<meta name="color-scheme" content="light dark">
+<!-- ARTIFACT-BODY-START -->
+<title>Putt Caddie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+  /* Putting green in daylight: a pale, slightly green-cast ground, one turf
+     hue for the map, amber for the aim line (the only thing the player has
+     to act on), and a separate status trio for make-rate judgement. */
+  :root {
+    --ground: #f2f4ee;
+    --surface: #ffffff;
+    --raised: #e7ebe1;
+    --line: #d3d9ca;
+    --ink: #172019;
+    --dim: #5b6a5e;
+    --faint: #8b978d;
+    --accent: #1f6f55;
+    --accent-ink: #ffffff;
+    --aim: #c8801a;
+    --aim-soft: rgba(200, 128, 26, .22);
+    --turf-h: 108; --turf-s: 38%; --turf-l: 58%;
+    --path: #ffffff; --path-halo: rgba(20, 30, 22, .75);
+    --good: #2f8a4b; --warn: #c48a12; --bad: #b8432f;
+    --focus: #1f6f55;
+    --sp: clamp(14px, 4vw, 20px);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0f1512; --surface: #161e19; --raised: #1f2a23; --line: #2c3a30;
+      --ink: #e8ede6; --dim: #9aa89d; --faint: #6d7a70;
+      --accent: #4fb28c; --accent-ink: #0d1a14;
+      --aim: #e9a33a; --aim-soft: rgba(233, 163, 58, .25);
+      --turf-h: 112; --turf-s: 34%; --turf-l: 34%;
+      --path: #ffffff; --path-halo: rgba(0, 0, 0, .8);
+      --good: #5cc07a; --warn: #e2b04a; --bad: #e0705c;
+      --focus: #4fb28c;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0f1512; --surface: #161e19; --raised: #1f2a23; --line: #2c3a30;
+    --ink: #e8ede6; --dim: #9aa89d; --faint: #6d7a70;
+    --accent: #4fb28c; --accent-ink: #0d1a14;
+    --aim: #e9a33a; --aim-soft: rgba(233, 163, 58, .25);
+    --turf-h: 112; --turf-s: 34%; --turf-l: 34%;
+    --path: #ffffff; --path-halo: rgba(0, 0, 0, .8);
+    --good: #5cc07a; --warn: #e2b04a; --bad: #e0705c;
+    --focus: #4fb28c;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { background: var(--ground); height: 100%; }
+  body {
+    margin: 0; min-height: 100%;
+    background: var(--ground); color: var(--ink);
+    font: 400 16px/1.45 "Noto Sans TC", -apple-system, "PingFang TC", "Microsoft JhengHei",
+          "Segoe UI", system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    padding-block: env(safe-area-inset-top, 0px) calc(env(safe-area-inset-bottom, 0px) + 32px);
+    padding-inline: var(--sp);
+  }
+  .num { font-family: "Barlow Condensed", "Arial Narrow", "Noto Sans TC", sans-serif;
+         font-variant-numeric: tabular-nums; }
+  button { font: inherit; color: var(--ink); background: var(--raised);
+           border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  button[aria-pressed="true"], button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+
+  .app { max-width: 520px; margin: 0 auto; display: grid; gap: 12px; }
+  @media (min-width: 940px) {
+    .app { max-width: 1060px; grid-template-columns: 1fr 440px; align-items: start; }
+    .col-map { position: sticky; top: env(safe-area-inset-top, 0px); }
+  }
+  .col-map, .col-ctl { display: grid; gap: 12px; min-width: 0; }
+  .app > *, .col-map > *, .col-ctl > * { min-width: 0; max-width: 100%; }
+
+  header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-top: 10px; }
+  header.top h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+  header.top h1 small { font-weight: 500; color: var(--dim); font-size: 13px; margin-left: 8px; }
+  .lang button { padding: 4px 9px; font-size: 12px; font-weight: 700; }
+
+  /* The read: the three numbers the player acts on */
+  .read { background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+          padding: 12px var(--sp) 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { min-width: 0; }
+  .tile .k { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); font-weight: 700; }
+  .tile .v { font-size: clamp(34px, 10vw, 46px); line-height: 1; font-weight: 700; letter-spacing: -.02em; margin-top: 4px;
+             white-space: nowrap; }
+  .tile .v u { text-decoration: none; font-size: .4em; color: var(--dim); font-weight: 600; margin-left: 3px; letter-spacing: .02em; }
+  .tile .s { font-size: 12px; color: var(--dim); margin-top: 4px; line-height: 1.3; }
+  .tile.aim .v { color: var(--aim); }
+  .tile.rate .v.good { color: var(--good); } .tile.rate .v.warn { color: var(--warn); } .tile.rate .v.bad { color: var(--bad); }
+  .read .note { grid-column: 1 / -1; font-size: 13px; color: var(--dim); border-top: 1px solid var(--line); padding-top: 8px; margin-top: 2px; }
+  .read .note.alert { color: var(--bad); font-weight: 500; }
+  .meter { grid-column: 1 / -1; display: flex; gap: 2px; height: 6px; margin-top: 2px; }
+  .meter span { flex: 1; background: var(--raised); border-radius: 1px; }
+  .meter span.on { background: var(--good); }
+  .meter.warn span.on { background: var(--warn); } .meter.bad span.on { background: var(--bad); }
+
+  /* Map */
+  .map { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; position: relative; }
+  .map canvas { display: block; width: 100%; max-width: 100%; height: auto; }
+  .map .legend { display: flex; flex-wrap: wrap; gap: 10px 14px; padding: 8px var(--sp) 10px; font-size: 12px; color: var(--dim); }
+  .legend i { display: inline-block; width: 14px; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+  .legend .path i { border-color: var(--ink); } .legend .aim i { border-color: var(--aim); border-top-style: dashed; }
+  .legend .win i { border-color: var(--aim); border-top-width: 6px; opacity: .45; }
+  .legend .wi i { border-color: var(--dim); border-top-style: dotted; }
+
+  /* Panels */
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px var(--sp) 14px; }
+  .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .panel-head .eyebrow { color: var(--dim); }
+  .seg { display: inline-flex; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: var(--surface); padding: 6px 12px; font-size: 13px; font-weight: 600; color: var(--dim); }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); }
+
+  .stepper { display: grid; grid-template-columns: 56px 1fr 56px; gap: 8px; align-items: stretch; }
+  .stepper .nudge { font-size: 26px; font-weight: 400; color: var(--dim); min-height: 52px; }
+  .stepper .nudge:active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .readout { display: flex; align-items: baseline; justify-content: center; gap: .15em; }
+  .readout input { width: 3.4em; background: transparent; border: 0; border-bottom: 1px dashed var(--line);
+                   color: var(--ink); text-align: center; padding: 0; font-size: 40px; line-height: 1.2;
+                   font-weight: 700; letter-spacing: -.02em; -moz-appearance: textfield; }
+  .readout input::-webkit-outer-spin-button, .readout input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .readout input:focus { outline: none; border-bottom-color: var(--accent); }
+  .readout u { text-decoration: none; font-size: 13px; color: var(--dim); font-weight: 600; letter-spacing: .04em; }
+  .readout .alt { font-size: 13px; color: var(--faint); margin-left: 6px; }
+
+  input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 36px; margin: 4px 0 0; background: transparent; }
+  input[type="range"]::-webkit-slider-runnable-track { height: 4px; background: var(--raised); border: 1px solid var(--line); border-radius: 2px; }
+  input[type="range"]::-moz-range-track { height: 4px; background: var(--raised); border: 1px solid var(--line); border-radius: 2px; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 28px; height: 28px; margin-top: -13px;
+                                              background: var(--accent); border: 0; border-radius: 50%; }
+  input[type="range"]::-moz-range-thumb { width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--accent); }
+  input[type="range"].aimr::-webkit-slider-thumb { background: var(--aim); }
+  input[type="range"].aimr::-moz-range-thumb { background: var(--aim); }
+  .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; margin-top: -2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chips button { flex: 1 1 0; min-width: 52px; padding: 8px 4px; font-size: 13px; font-weight: 600; color: var(--dim); }
+
+  /* Zones */
+  .zones { display: grid; gap: 10px; }
+  .zone { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 12px; border-left-width: 4px; }
+  .zone[data-i="0"] { border-left-color: #3aa76d; } .zone[data-i="1"] { border-left-color: #e08a3a; } .zone[data-i="2"] { border-left-color: #4a8fd6; }
+  .zone h3 { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--dim); display: flex; justify-content: space-between; }
+  .zone h3 span { font-weight: 500; color: var(--faint); }
+  .srow { display: grid; grid-template-columns: 44px 1fr 44px; gap: 6px; align-items: center; }
+  .srow + .srow { margin-top: 6px; }
+  .srow .nudge { min-height: 44px; font-size: 22px; color: var(--dim); }
+  .srow .nudge:active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .srow .mid { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; padding: 0 4px; min-width: 0; }
+  .srow .lab { font-size: 13px; color: var(--dim); min-width: 0; }
+  .srow .lab b { display: block; color: var(--ink); font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srow .val { display: flex; align-items: baseline; gap: 2px; }
+  .srow .val input { width: 2.6em; font-size: 26px; font-weight: 700; background: transparent; border: 0; border-bottom: 1px dashed var(--line);
+                     color: var(--ink); text-align: right; padding: 0; -moz-appearance: textfield; }
+  .srow .val input::-webkit-outer-spin-button, .srow .val input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .srow .val u { text-decoration: none; font-size: 12px; color: var(--dim); }
+  .splits { display: grid; gap: 6px; margin-top: 10px; }
+  .splits label { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 13px; color: var(--dim); }
+  .splits label b { color: var(--ink); font-weight: 600; min-width: 3.2em; text-align: right; }
+  .off { opacity: .35; pointer-events: none; }
+
+  .whatif .res { font-size: 14px; margin-top: 6px; min-height: 1.4em; }
+  .whatif .res.hit { color: var(--good); font-weight: 600; } .whatif .res.miss { color: var(--dim); }
+  .whatif .head-v { font-size: 30px; font-weight: 700; }
+  .whatif .head-v u { text-decoration: none; font-size: 13px; color: var(--dim); margin-left: 4px; }
+  .whatif .reset { padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--dim); }
+
+  details.settings { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0 var(--sp); }
+  details.settings summary { cursor: pointer; padding: 12px 0; font-weight: 600; font-size: 14px; color: var(--dim); list-style: none; display: flex; justify-content: space-between; }
+  details.settings summary::-webkit-details-marker { display: none; }
+  details.settings summary::after { content: "+"; color: var(--faint); font-size: 18px; line-height: 1; }
+  details.settings[open] summary::after { content: "–"; }
+  .setrow { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .setrow .d { font-size: 12px; color: var(--dim); }
+  .setrow input[type="number"] { width: 4.5em; font: inherit; font-size: 18px; font-weight: 700; text-align: center; background: var(--raised);
+                                  border: 1px solid var(--line); border-radius: 8px; color: var(--ink); padding: 4px; }
+  .fine { font-size: 12px; color: var(--faint); line-height: 1.5; padding: 4px 2px 14px; }
+  .fine p { margin: 6px 0; }
+
+  /* Level: the phone's own tilt sensor fills a zone's slope */
+  .zone h3 .zr-wrap { display: flex; align-items: center; gap: 8px; }
+  .zone h3 .lvbtn { padding: 4px 10px; font-size: 12px; font-weight: 700; color: var(--accent); border-color: var(--accent); }
+  .lvsheet { position: fixed; inset: 0; z-index: 50; background: rgba(8, 14, 10, .55); display: flex; align-items: flex-end; justify-content: center; padding: 10px; }
+  .lvsheet[hidden] { display: none; }
+  .lvcard { width: 100%; max-width: 480px; max-height: 94vh; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+            padding: var(--sp); box-shadow: 0 12px 40px rgba(0, 0, 0, .35); }
+  .lvhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .lvhead button { padding: 8px 16px; font-size: 14px; font-weight: 700; background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .lvchips { display: flex; gap: 6px; margin-bottom: 10px; }
+  .lvchips button { flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 600; color: var(--dim); }
+  .lvchips button.done:not([aria-pressed="true"]) { color: var(--good); border-color: var(--good); }
+  .lvhint { font-size: 14px; color: var(--ink); line-height: 1.5; margin-bottom: 12px; }
+  .lvlive { display: grid; grid-template-columns: 92px 1fr 1fr; gap: 12px; align-items: center; }
+  .bubble { width: 92px; height: 92px; border-radius: 50%; background: var(--raised); border: 1px solid var(--line); position: relative; }
+  .bubble::before, .bubble::after { content: ""; position: absolute; background: var(--line); }
+  .bubble::before { left: 50%; top: 6px; bottom: 6px; width: 1px; }
+  .bubble::after { top: 50%; left: 6px; right: 6px; height: 1px; }
+  .bubble .ring { position: absolute; left: 50%; top: 50%; width: 32px; height: 32px; margin: -16px; border-radius: 50%; border: 1px dashed var(--faint); }
+  .bubble .dot { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px; border-radius: 50%; background: var(--aim);
+                 box-shadow: 0 0 0 2px var(--surface); transition: transform .08s linear; }
+  .bubble .dot.ok { background: var(--good); }
+  .lvv .k { display: block; font-size: 12px; color: var(--dim); }
+  .lvv b { font-size: 30px; font-weight: 700; line-height: 1.1; }
+  .lvv b u { text-decoration: none; font-size: 13px; color: var(--dim); margin-left: 2px; }
+  .lvv i { display: block; font-style: normal; font-size: 12px; color: var(--dim); min-height: 1.3em; }
+  .lvbar { height: 6px; border-radius: 3px; background: var(--raised); margin: 12px 0 8px; overflow: hidden; }
+  .lvbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .1s linear; }
+  .lvstatus { font-size: 14px; min-height: 1.5em; line-height: 1.5; }
+  .lvstatus.ok { color: var(--good); font-weight: 600; }
+  .lvstatus.bad { color: var(--bad); }
+  .lvdirect { display: block; margin-top: 8px; padding: 10px; text-align: center; font-weight: 700; font-size: 14px; border-radius: 8px;
+              background: var(--accent); color: var(--accent-ink); text-decoration: none; }
+  .lvdirect[hidden] { display: none; }
+  .lvdiag { font-size: 11px; color: var(--faint); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .lvbtns { display: flex; gap: 8px; margin-top: 10px; }
+  .lvbtns button { flex: 1; padding: 10px 4px; font-size: 13px; font-weight: 600; color: var(--dim); }
+  .lvzero { font-size: 12px; color: var(--faint); margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .lvzero button { padding: 2px 8px; font-size: 11px; color: var(--dim); }
+  .lvtip { font-size: 12px; color: var(--faint); line-height: 1.5; margin-top: 10px; }
+  .setrow input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--accent); }
+
+  @media (prefers-reduced-motion: no-preference) { .tile .v { transition: color .15s ease; } }
+</style>
+
+<div class="app">
+  <div class="col-map">
+    <header class="top">
+      <h1><span data-t="title">Putt Caddie</span><small data-t="subtitle">推杆讀線</small></h1>
+      <div class="lang" role="group" aria-label="Language">
+        <button id="lang-zh" aria-pressed="true">中</button><button id="lang-en" aria-pressed="false">EN</button>
+      </div>
+    </header>
+
+    <section class="read" id="read" aria-live="polite"></section>
+
+    <section class="map">
+      <canvas id="map" width="320" height="400" aria-label="Green map"></canvas>
+      <div class="legend">
+        <span class="path"><i></i><span data-t="lg_path">建議路線</span></span>
+        <span class="aim"><i></i><span data-t="lg_aim">瞄準線</span></span>
+        <span class="win"><i></i><span data-t="lg_win">進洞窗口</span></span>
+        <span class="wi" id="lg-wi" hidden><i></i><span data-t="lg_wi">試打路線</span></span>
+        <span id="lg-stretch"></span>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-ctl">
+    <section class="panel">
+      <div class="panel-head"><span class="eyebrow" data-t="dist">距離</span><span class="alt num" id="dist-m"></span></div>
+      <div class="stepper">
+        <button class="nudge" id="dm" aria-label="shorter">−</button>
+        <div class="readout num"><input id="dv" type="number" inputmode="decimal" step="0.5" min="2" max="60" aria-label="Distance ft"><u>ft</u></div>
+        <button class="nudge" id="dp" aria-label="longer">+</button>
+      </div>
+      <input type="range" id="drange" min="2" max="60" step="0.5" aria-label="Distance">
+      <div class="ticks"><span>2</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="eyebrow" data-t="slope">坡度</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="seg" id="unitseg" role="group" aria-label="Slope units"><button data-u="deg">°</button><button data-u="pct">%</button></div>
+          <div class="seg" id="nzseg" role="group" aria-label="Zones"><button data-n="1">1</button><button data-n="2">2</button><button data-n="3">3</button></div>
+        </div>
+      </div>
+      <div class="zones" id="zones"></div>
+      <div class="splits" id="splits"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><span class="eyebrow" data-t="stimp">果嶺速度</span><span class="alt" data-t="stimp_hint">Stimp（EXPUTT 速度 ÷ 10）</span></div>
+      <div class="stepper">
+        <button class="nudge" id="gm" aria-label="slower">−</button>
+        <div class="readout num"><input id="gv" type="number" inputmode="decimal" step="0.1" min="6" max="14" aria-label="Stimp"><u>stimp</u></div>
+        <button class="nudge" id="gp" aria-label="faster">+</button>
+      </div>
+      <input type="range" id="grange" min="6" max="14" step="0.1" aria-label="Green speed">
+      <div class="ticks"><span>6</span><span>8</span><span>10</span><span>12</span><span>14</span></div>
+    </section>
+
+    <section class="panel whatif">
+      <div class="panel-head">
+        <span class="eyebrow" data-t="whatif">試試別的瞄準點</span>
+        <button class="reset" id="wi-reset" data-t="wi_reset">回到建議</button>
+      </div>
+      <div class="head-v num" id="wi-v"></div>
+      <input type="range" class="aimr" id="wirange" min="-150" max="150" step="1" aria-label="What-if aim">
+      <div class="ticks"><span data-t="left_l">← 左 150</span><span>0</span><span data-t="right_l">右 150 →</span></div>
+      <div class="res" id="wi-res"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><span class="eyebrow" data-t="skill">你的穩定度</span><span class="alt" id="skill-hint"></span></div>
+      <div class="chips" id="skill"></div>
+    </section>
+
+    <details class="settings">
+      <summary data-t="settings">設定</summary>
+      <div class="setrow">
+        <div><span data-t="cal">後擺校正</span><div class="d" data-t="cal_d">平地、stimp 8、推 10 ft 需要的後擺（cm）</div></div>
+        <input type="number" id="cal" inputmode="decimal" step="0.5" min="3" max="40">
+      </div>
+      <div class="setrow">
+        <div><span data-t="overroll">目標打過洞</span><div class="d" data-t="overroll_d">建議力道讓球沿路線多滾這麼遠</div></div>
+        <span class="num" style="font-size:18px;font-weight:700" id="ov-v"></span>
+      </div>
+      <div class="setrow">
+        <div><span data-t="lv_flip_fb">水平儀：前後方向反轉</span><div class="d" data-t="lv_flip_d">量出來的方向和實際相反時勾選</div></div>
+        <input type="checkbox" id="flipfb">
+      </div>
+      <div class="setrow">
+        <div><span data-t="lv_flip_lr">水平儀：左右方向反轉</span><div class="d" data-t="lv_flip_d">量出來的方向和實際相反時勾選</div></div>
+        <input type="checkbox" id="fliplr">
+      </div>
+      <div class="fine" id="fine"></div>
+    </details>
+  </div>
+</div>
+
+<div class="lvsheet" id="lv" hidden role="dialog" aria-modal="true" aria-labelledby="lv-title">
+  <div class="lvcard">
+    <div class="lvhead"><span class="eyebrow" id="lv-title" data-t="lv_title">用手機量坡度</span><button id="lv-close" data-t="lv_done">完成</button></div>
+    <div class="lvchips" id="lv-chips"><button data-i="0"></button><button data-i="1"></button><button data-i="2"></button></div>
+    <div class="lvhint" id="lv-hint"></div>
+    <div class="lvlive">
+      <div class="bubble" aria-hidden="true"><div class="ring"></div><div class="dot" id="lv-dot"></div></div>
+      <div class="lvv num"><span class="k" data-t="fb">前後</span><b><span id="lv-fb">—</span><u id="lv-fbu"></u></b><i id="lv-fbd"></i></div>
+      <div class="lvv num"><span class="k" data-t="lr">左右</span><b><span id="lv-lr">—</span><u id="lv-lru"></u></b><i id="lv-lrd"></i></div>
+    </div>
+    <div class="lvbar"><i id="lv-bar"></i></div>
+    <div class="lvstatus" id="lv-status" aria-live="polite"></div>
+    <a class="lvdirect" id="lv-direct" hidden target="_blank" rel="noopener"></a>
+    <div class="lvdiag" id="lv-diag"></div>
+    <div class="lvbtns"><button id="lv-rearm" data-t="lv_rearm">重量這段</button><button id="lv-zero" data-t="lv_zero">歸零</button></div>
+    <div class="lvzero" id="lv-zinfo"></div>
+    <div class="lvtip" id="lv-tip"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ═══════════════════════════ Physics (ported from putt_physics.py,
+   putt_simulator_compound.py, hole_capture.py, dispersion.py) ═══════════ */
+const P = {
+  G: 9.81, FT: 0.3048, HOLE_R: 0.054, BALL_R: 0.02135, DT: 0.01, MAX_T: 30,
+  A0: 0.6859, K: 0.05634, STIMP_REF: 8, STIMP_CAL: 8, C: 0.836, OVERROLL: 1.5,
+};
+const T_FALL = Math.sqrt(2 * P.BALL_R / P.G);
+const MAX_CAPTURE_V = (2 * P.HOLE_R - P.BALL_R) / T_FALL;     // 1.31 m/s
+const HOLE_R_FT = P.HOLE_R / P.FT;
+let CAL_CM_PER_10FT = 10;   // personal stroke calibration
+
+function captureHalfWidth(v) {
+  if (v >= MAX_CAPTURE_V) return 0;
+  const hc = 0.5 * (P.BALL_R + Math.max(v, 0) * T_FALL);
+  if (hc >= P.HOLE_R) return 0;
+  return Math.sqrt(P.HOLE_R * P.HOLE_R - hc * hc);
+}
+function segOffset(x0, y0, x1, y1, hx, hy) {
+  const dx = x1 - x0, dy = y1 - y0, s2 = dx * dx + dy * dy;
+  if (s2 <= 0) return Math.hypot(x0 - hx, y0 - hy);
+  let t = ((hx - x0) * dx + (hy - y0) * dy) / s2;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return Math.hypot(x0 + t * dx - hx, y0 + t * dy - hy);
+}
+function friction(v, stimp) { return (P.A0 + P.K * v) * (P.STIMP_REF / stimp); }
+function distM(v0, b0, ks) {
+  if (v0 <= 0) return 0;
+  if (b0 <= 0) return Infinity;
+  if (ks <= 0) return v0 * v0 / (2 * b0);
+  return v0 / ks - (b0 / (ks * ks)) * Math.log1p(ks * v0 / b0);
+}
+function flatDistFt(v0, stimp) { const s = P.STIMP_REF / stimp; return distM(v0, P.A0 * s, P.K * s) / P.FT; }
+function v0ForDist(target, stimp, fb) {
+  if (target <= 0) return 0;
+  const s = P.STIMP_REF / stimp;
+  const b0 = P.A0 * s + P.C * P.G * Math.sin(fb * Math.PI / 180), ks = P.K * s;
+  if (b0 <= 0) return null;
+  const f = v => distM(v, b0, ks) / P.FT;
+  let lo = 0, hi = 15;
+  while (f(hi) < target) { hi *= 2; if (hi > 240) return null; }
+  for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (f(m) < target) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+const calScale = () => 10 / CAL_CM_PER_10FT;
+function backToV0(cm) { return v0ForDist(cm * calScale(), P.STIMP_CAL, 0); }
+function v0ToBack(v0) { return flatDistFt(v0, P.STIMP_CAL) / calScale(); }
+const aimCmToDeg = (cm, dist) => cm === 0 ? 0 : Math.atan(cm / 100 / (dist * P.FT)) * 180 / Math.PI;
+
+/* Green: up to three zones along the line, blended with sigmoids exactly
+   as build_heightmap does, but with the gradient taken analytically. */
+function makeGreen(zones, sp1, sp2, dist) {
+  const z = [zones[0], zones[1] || zones[0], zones[2] || zones[1] || zones[0]];
+  const w = Math.max(dist * 0.10, 0.8), s1 = sp1 * dist, s2 = sp2 * dist;
+  const t = z.map(o => -Math.tan(o.lr * Math.PI / 180));   // +lr: left side high, H falls with x
+  const f = z.map(o => Math.tan(o.fb * Math.PI / 180));
+  const sig = (y, c) => 1 / (1 + Math.exp(-(y - c) / w));
+  function weights(y) {
+    const b12 = sig(y, s1), b23 = sig(y, s2);
+    const d12 = b12 * (1 - b12) / w, d23 = b23 * (1 - b23) / w;
+    return {
+      w: [1 - b12, b12 * (1 - b23), b12 * b23],
+      dw: [-d12, d12 * (1 - b23) - b12 * d23, d12 * b23 + b12 * d23],
+    };
+  }
+  return {
+    dist, sp1, sp2, n: zones.length,
+    slopeAt(x, y) {
+      const { w: ww, dw } = weights(y);
+      const sx = t[0] * ww[0] + t[1] * ww[1] + t[2] * ww[2];
+      const dsx = t[0] * dw[0] + t[1] * dw[1] + t[2] * dw[2];
+      const sy = f[0] * ww[0] + f[1] * ww[1] + f[2] * ww[2];
+      return [sx, x * dsx + sy];
+    },
+    // Height field for drawing: H = x*sx(y) + ∫sy dy
+    heightRows(y0, y1, step) {
+      const rows = []; let hfb = 0, prev = 0;
+      for (let y = y0; y <= y1 + 1e-9; y += step) {
+        const { w: ww } = weights(y);
+        const sx = t[0] * ww[0] + t[1] * ww[1] + t[2] * ww[2];
+        const sy = f[0] * ww[0] + f[1] * ww[1] + f[2] * ww[2];
+        if (rows.length) hfb += 0.5 * (sy + prev) * step;
+        prev = sy;
+        rows.push({ y, sx, hfb });
+      }
+      return rows;
+    },
+  };
+}
+
+function simulate(g, stimp, aimDeg, backCm, capture) {
+  const dist = g.dist, v0 = backToV0(backCm);
+  const a = aimDeg * Math.PI / 180;
+  let vx = v0 * Math.sin(a), vy = v0 * Math.cos(a);
+  const hx = 0, hy = dist * P.FT;
+  let x = 0, y = 0, t = 0, arc = 0, closest = Math.hypot(hx, hy), holed = false;
+  const xs = [0], ys = [0];
+  while (t < P.MAX_T) {
+    const sp = Math.hypot(vx, vy);
+    if (sp < 1e-6) break;
+    const gr = g.slopeAt(x / P.FT, y / P.FT);
+    const ax = -P.C * P.G * gr[0], ay = -P.C * P.G * gr[1];
+    const ar = friction(sp, stimp), ovx = vx, ovy = vy;
+    vx += (ax - ar * vx / sp) * P.DT;
+    vy += (ay - ar * vy / sp) * P.DT;
+    const ns = Math.hypot(vx, vy);
+    if (ns < 1e-6 || (ovx * vx + ovy * vy <= 0 && Math.hypot(ax, ay) < ar)) { vx = vy = 0; break; }
+    const dx = vx * P.DT, dy = vy * P.DT, x0 = x, y0 = y;
+    x += dx; y += dy; arc += Math.hypot(dx, dy); t += P.DT;
+    xs.push(x / P.FT); ys.push(y / P.FT);
+    const d = segOffset(x0, y0, x, y, hx, hy);
+    if (d < closest) closest = d;
+    if (capture && d <= P.HOLE_R && d <= captureHalfWidth(ns)) { holed = true; break; }
+  }
+  return { holed, xs, ys, closest, stop: [x / P.FT, y / P.FT], v0, arc: arc / P.FT };
+}
+
+function recommendBack(g, stimp, aimDeg, overroll) {
+  const target = g.dist + (overroll ?? P.OVERROLL);
+  const arcFor = b => simulate(g, stimp, aimDeg, b, false).arc;
+  let lo = 0.5, hi = Math.max(g.dist, 4) / calScale(), ok = false;
+  for (let i = 0; i < 24; i++) { if (arcFor(hi) >= target) { ok = true; break; } hi *= 1.5; if (hi > 4000) return null; }
+  if (!ok) return null;
+  for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (arcFor(m) < target) lo = m; else hi = m; if (hi - lo < 0.02) break; }
+  return (lo + hi) / 2;
+}
+
+/* Aim window: the aim that runs the ball over the cup centre, then the
+   outermost aims on each side that still hole.  Mirrors solve_aim_window. */
+function solveAimWindow(g, stimp, overroll) {
+  const dist = g.dist, span = Math.max(200, dist * 12), step = 1.0;
+  const roll = cm => {
+    const a = aimCmToDeg(cm, dist), back = recommendBack(g, stimp, a, overroll);
+    if (back === null) return null;
+    return { sim: simulate(g, stimp, a, back, true), back };
+  };
+  const signedMiss = cm => {
+    const o = roll(cm); if (!o) return [null, null];
+    const { xs, ys, holed } = o.sim;
+    for (let i = 1; i < ys.length; i++) if (ys[i] >= dist) {
+      const f = ys[i] !== ys[i - 1] ? (dist - ys[i - 1]) / (ys[i] - ys[i - 1]) : 0;
+      return [xs[i - 1] + f * (xs[i] - xs[i - 1]), o.back];
+    }
+    return [holed ? 0 : null, o.back];
+  };
+  let loA = null, hiA = null;
+  const [vs] = signedMiss(0);
+  if (vs !== null && Math.abs(vs) <= HOLE_R_FT) { loA = hiA = 0; }
+  else {
+    const coarse = Math.max(span / 60, 2);
+    for (const sign of [-1, 1]) {
+      if (loA !== null) break;
+      let prevCm = null, prevV = null;
+      for (let probe = coarse; probe <= span; probe += coarse) {
+        const cand = sign * probe, [v] = signedMiss(cand);
+        if (v === null) continue;
+        if (Math.abs(v) < 1e-9) { loA = hiA = cand; break; }
+        if (prevV !== null && v * prevV <= 0) { loA = Math.min(prevCm, cand); hiA = Math.max(prevCm, cand); break; }
+        prevCm = cand; prevV = v;
+      }
+    }
+  }
+  if (loA === null) return null;
+  let [vlo] = signedMiss(loA);
+  for (let i = 0; i < 40; i++) {
+    if (hiA - loA < 0.05 || vlo === null) break;
+    const mid = (loA + hiA) / 2, [v] = signedMiss(mid);
+    if (v === null) break;
+    if (v * vlo <= 0) hiA = mid; else { loA = mid; vlo = v; }
+  }
+  const centre = (loA + hiA) / 2, oc = roll(centre);
+  if (!oc) return null;
+  if (!oc.sim.holed) return { aim: centre, lo: centre, hi: centre, back: oc.back, holes: false };
+  const edge = dir => {
+    let good = centre, bad = null;
+    for (let probe = step; probe <= span; probe *= 2) {
+      const cand = centre + dir * probe, o = roll(cand);
+      if (!o || !o.sim.holed) { bad = cand; break; }
+      good = cand;
+    }
+    if (bad === null) return good;
+    for (let i = 0; i < 20; i++) {
+      const mid = (good + bad) / 2, o = roll(mid);
+      if (o && o.sim.holed) good = mid; else bad = mid;
+      if (Math.abs(bad - good) < 0.2) break;
+    }
+    return good;
+  };
+  const lo = edge(-1), hi = edge(1);
+  return { aim: (lo + hi) / 2, lo, hi, back: oc.back, holes: true };
+}
+
+/* Monte Carlo make rate with common random numbers (seeded). */
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gaussPair(rnd) { const u = 1 - rnd(), v = rnd(); const r = Math.sqrt(-2 * Math.log(u)); return [r * Math.cos(2 * Math.PI * v), r * Math.sin(2 * Math.PI * v)]; }
+function dispersion(g, stimp, aimCm, backCm, n, powerSig, aimSig) {
+  const rnd = mulberry32(12345), dist = g.dist;
+  let made = 0, leaveSum = 0, far = 0, short = 0, longR = 0;
+  for (let i = 0; i < n; i++) {
+    const [e1, e2] = gaussPair(rnd);
+    const a = aimCmToDeg(aimCm, dist) + e2 * aimSig;
+    const b = Math.max(backCm * (1 + e1 * powerSig), 0.1);
+    const s = simulate(g, stimp, a, b, true);
+    if (s.holed) { made++; continue; }
+    const rem = Math.hypot(s.stop[0], s.stop[1] - dist);
+    leaveSum += rem; if (rem > 3) far++;
+    const past = s.stop[1] - dist; if (past < 0) short++; if (past > 3) longR++;
+  }
+  return { make: made / n, leave: leaveSum / n, threePutt: far / n, short: short / n, long: longR / n, n };
+}
+
+/* ═══════════════════════════ UI ═══════════════════════════ */
+// [power sigma (fraction of backswing), line sigma (deg)].  Line error
+// includes the read, not only the stroke, so it is wider than face-angle
+// data alone would suggest.
+const SKILLS = { tour: [0.03, 0.5], good: [0.05, 0.8], avg: [0.08, 1.2] };
+const STR = {
+  zh: {
+    title: "Putt Caddie", subtitle: "推杆讀線", dist: "距離", slope: "坡度", stimp: "果嶺速度",
+    stimp_hint: "Stimp（EXPUTT 速度 ÷ 10）", whatif: "試試別的瞄準點", wi_reset: "回到建議",
+    left_l: "← 左 150", right_l: "右 150 →", skill: "你的穩定度", settings: "設定",
+    cal: "後擺校正", cal_d: "平地、stimp 8、推 10 ft 需要的後擺（cm）",
+    overroll: "目標打過洞", overroll_d: "建議力道讓球沿路線多滾這麼遠",
+    lg_path: "建議路線", lg_aim: "瞄準線", lg_win: "進洞窗口", lg_wi: "試打路線",
+    back: "後擺", aim: "瞄準", make: "進洞率", straight: "直推", left: "左", right: "右",
+    cups: "≈ {n} 杯", window: "容錯 ±{n} cm（瞄 {r} 都進）", leave: "沒進平均剩 {n} ft",
+    threeputt: "三推風險 {n}%", playas: "當作 {n} ft 的平推",
+    no_line: "找不到能進洞的線，這條路線最接近洞口。", too_fast: "球到洞口時太快，任何瞄準都掉不進；顯示最接近的線。",
+    runaway: "下坡太陡，這個模型裡球停不下來。", stretch: "橫向放大 ×{n}",
+    zone: ["第 1 段 · 球員側", "第 2 段 · 中間", "第 3 段 · 洞口側"], zone1: "整個果嶺",
+    fb: "前後", lr: "左右", up: "上坡", down: "下坡", flat: "平", brk_r: "球往右轉", brk_l: "球往左轉", brk_0: "不轉",
+    split1: "第 1 段到", split2: "第 2 段到", of: "的距離",
+    wi_hit: "進洞！後擺 {b} cm", wi_miss: "沒進，最近差洞 {n} cm（後擺 {b} cm）", wi_none: "這個瞄準點力道解不出來",
+    sk_tour: "職業", sk_good: "穩定", sk_avg: "一般", sk_hint: "力道 ±{p}%・方向 ±{a}°",
+    lv_btn: "📐 量", lv_title: "用手機量坡度", lv_done: "完成", lv_rearm: "重量這段", lv_zero: "歸零", lv_clear: "清除",
+    lv_hint: "把手機平放在{z}的草皮上，機頂指向球洞，放手不要碰。靜止 1.5 秒會自動記錄並填入。",
+    lv_hint_lift: "拿起手機，放到{z}，機頂指向球洞，放手不要碰。",
+    lv_hint_zero: "把手機放在確定水平的桌面上，放手不要碰，靜止後就會歸零。",
+    lv_wait: "等待靜止…", lv_moving: "手機還在動", lv_nodata_yet: "等待感測器…",
+    lv_locked: "✓ {z}已填入：前後 {fb}，左右 {lr}。", lv_all_done: "全部量完了，按「完成」看建議。",
+    lv_zeroed: "已歸零。", lv_zinfo: "歸零偏移：前後 {fb}°、左右 {lr}°", lv_nozero: "尚未歸零（會直接用感測器的原始值）",
+    lv_https: "要讀感測器必須用 https 連結開啟（例如 Claude 連結）。區網 http 和從「檔案」app 打開都不行。",
+    lv_nosensor: "這個瀏覽器沒有傾斜感測器。",
+    lv_asking: "正在向 iOS 要感測器權限…", lv_open_direct: "用直接連結開啟 ↗", yes: "是", no: "否",
+    lv_diag: "診斷：https {s} · 框架內 {f} · 權限 API {p} · 收到資料 {n}",
+    lv_framed: "這個頁面是在 claude.ai 的框架裡開啟的，iOS 不會把感測器交給框架內的頁面，所以永遠收不到資料。要用這個功能必須用「直接的 https 網址」開啟同一個頁面（例如 GitHub Pages）。",
+    lv_denied: "沒有取得「動作與方向」權限。請重新整理頁面再按一次，或到 設定 › Safari › 動作與方向取用 打開。",
+    lv_nodata: "收不到感測器資料。從 claude.ai 開啟時可能被頁面框架擋住；試試「加入主畫面」後從主畫面開啟，或改用其他 https 主機。",
+    lv_tip: "相機凸起會讓手機歪，先在平桌面「歸零」一次，之後每次都同一面朝上、同一個手機殼。方向若和實際相反，到「設定」勾反轉。依高爾夫規則 4.3a，比賽中不可用裝置量坡度，練習專用。",
+    lv_flip_fb: "水平儀：前後方向反轉", lv_flip_lr: "水平儀：左右方向反轉", lv_flip_d: "量出來的方向和實際相反時勾選",
+    fine: "<p>模型以 EXPUTT 速度 80 的 55 筆前後坡資料校準（摩擦 a=0.686+0.056v m/s²，坡度反應 0.836）。這裡的 Stimp 是 EXPUTT 的標示；依真正 Stimpmeter 定義約再乘 0.91。</p><p>洞口捕捉採 Holmes (1991) 自由落體準則：正中進洞上限 1.31 m/s，越偏越低。進洞率是簡化模型下的估計，適合比較不同線路，不要當成絕對值。</p><p>左右坡只有 10 筆實測做合理性檢查，長推杆的轉彎量可能被低估 10–25%。</p>",
+  },
+  en: {
+    title: "Putt Caddie", subtitle: "green reader", dist: "Length", slope: "Slope", stimp: "Green speed",
+    stimp_hint: "Stimp (EXPUTT speed ÷ 10)", whatif: "Try another aim", wi_reset: "Back to advice",
+    left_l: "← left 150", right_l: "right 150 →", skill: "Your consistency", settings: "Settings",
+    cal: "Stroke calibration", cal_d: "Backswing (cm) for a 10 ft flat putt at stimp 8",
+    overroll: "Target run-past", overroll_d: "Pace is set so the ball would run this far past the cup",
+    lg_path: "Advised path", lg_aim: "Aim line", lg_win: "Make window", lg_wi: "What-if path",
+    back: "Backswing", aim: "Aim", make: "Make rate", straight: "straight", left: "left", right: "right",
+    cups: "≈ {n} cups", window: "margin ±{n} cm (aims {r} all drop)", leave: "misses leave {n} ft",
+    threeputt: "3-putt risk {n}%", playas: "play as a {n} ft flat putt",
+    no_line: "No aim holes this putt; this is the closest line.", too_fast: "Too fast at the cup to drop at any aim; showing the closest line.",
+    runaway: "Too steep downhill: the ball does not stop in this model.", stretch: "sideways ×{n}",
+    zone: ["Zone 1 · player side", "Zone 2 · middle", "Zone 3 · hole side"], zone1: "Whole green",
+    fb: "Fore/aft", lr: "Side", up: "uphill", down: "downhill", flat: "flat", brk_r: "breaks right", brk_l: "breaks left", brk_0: "no break",
+    split1: "Zone 1 ends at", split2: "Zone 2 ends at", of: "of the length",
+    wi_hit: "Drops. Backswing {b} cm", wi_miss: "Misses by {n} cm (backswing {b} cm)", wi_none: "No pace solves this aim",
+    sk_tour: "Tour", sk_good: "Steady", sk_avg: "Average", sk_hint: "pace ±{p}% · line ±{a}°",
+    lv_btn: "📐 Level", lv_title: "Measure slope with the phone", lv_done: "Done", lv_rearm: "Re-measure", lv_zero: "Zero", lv_clear: "clear",
+    lv_hint: "Lay the phone flat on the turf in {z}, top of the phone toward the hole, then let go. It records itself after 1.5 s of stillness.",
+    lv_hint_lift: "Lift the phone, lay it on {z}, top toward the hole, and let go.",
+    lv_hint_zero: "Lay the phone on a surface you know is level and let go. It zeroes once still.",
+    lv_wait: "waiting for stillness…", lv_moving: "phone is moving", lv_nodata_yet: "waiting for the sensor…",
+    lv_locked: "✓ {z} set: fore/aft {fb}, side {lr}.", lv_all_done: "All zones measured. Tap Done to see the read.",
+    lv_zeroed: "Zeroed.", lv_zinfo: "zero offset: fore/aft {fb}°, side {lr}°", lv_nozero: "not zeroed (raw sensor values)",
+    lv_https: "The sensor needs an https page (the Claude link works). Plain http on the LAN and files opened from the Files app cannot read it.",
+    lv_nosensor: "This browser has no tilt sensor.",
+    lv_asking: "asking iOS for sensor permission…", lv_open_direct: "Open the direct link ↗", yes: "yes", no: "no",
+    lv_diag: "diag: https {s} · framed {f} · permission API {p} · data {n}",
+    lv_framed: "This page is running inside the claude.ai frame, and iOS withholds the tilt sensor from framed pages, so no data can ever arrive. Open the same page from a direct https address (GitHub Pages, for example).",
+    lv_denied: "Motion & orientation permission was not granted. Reload and tap again, or enable Settings › Safari › Motion & Orientation Access.",
+    lv_nodata: "No sensor data arrives. Opened from claude.ai the page frame may block it; try Add to Home Screen and open from there, or host on another https site.",
+    lv_tip: "The camera bump tilts the phone: zero once on a flat table, then always lay it the same side up in the same case. If a direction reads backwards, flip it under Settings. Rule 4.3a forbids measuring slope with a device in competition; practice only.",
+    lv_flip_fb: "Level: flip fore/aft", lv_flip_lr: "Level: flip side", lv_flip_d: "Tick when the measured direction is opposite to reality",
+    fine: "<p>Calibrated on 55 fore/aft rows from an EXPUTT at speed 80 (friction a=0.686+0.056v m/s², slope response 0.836). Stimp here is EXPUTT's label; multiply by about 0.91 for a true Stimpmeter reading.</p><p>Hole capture follows Holmes (1991): 1.31 m/s dead centre, less off-centre. Make rates are estimates from a simplified model; trust the comparison between lines more than the number.</p><p>Side slope has only ten measured checks; break on long putts may be under-read by 10–25%.</p>",
+  },
+};
+const tr = (k, vars) => { let s = STR[state.lang][k] ?? STR.zh[k] ?? k; if (vars) for (const v in vars) s = s.replaceAll("{" + v + "}", vars[v]); return s; };
+const fmt = (n, d = 0) => Number(n).toFixed(d);
+
+const state = {
+  dist: 20, stimp: 8, nz: 1, zones: [{ fb: 0, lr: 0 }, { fb: 0, lr: 0 }, { fb: 0, lr: 0 }],
+  sp1: 33, sp2: 67, unit: "deg", whatif: null, skill: "good", cal: 10, lang: "zh",
+};
+try { const s = JSON.parse(localStorage.getItem("puttcaddie.v2")); if (s && typeof s === "object") Object.assign(state, s, { whatif: null }); } catch (e) {}
+function persist() { try { localStorage.setItem("puttcaddie.v2", JSON.stringify(state)); } catch (e) {} }
+
+const $ = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const pctToDeg = p => Math.atan(p / 100) * 180 / Math.PI;
+const degToPct = d => Math.tan(d * Math.PI / 180) * 100;
+const SLOPE_MAX = 5;
+
+function repeatable(el, fn) {
+  let timer = null, delay = null;
+  const stop = () => { clearTimeout(delay); clearInterval(timer); timer = null; };
+  el.addEventListener("pointerdown", ev => { ev.preventDefault(); fn(); delay = setTimeout(() => { timer = setInterval(fn, 80); }, 400); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(e => el.addEventListener(e, stop));
+}
+
+/* ── Zone cards ─────────────────────────────────────────────────────── */
+function buildZones() {
+  const wrap = $("zones"); wrap.innerHTML = "";
+  for (let i = 0; i < 3; i++) {
+    const z = document.createElement("div"); z.className = "zone"; z.dataset.i = i;
+    z.innerHTML = `<h3><span class="zn"></span><span class="zr-wrap"><span class="zr"></span><button class="lvbtn" type="button"></button></span></h3>
+      <div class="srow" data-k="fb"><button class="nudge" data-d="-1">−</button>
+        <div class="mid"><div class="lab"><span class="k"></span><b class="desc"></b></div>
+          <div class="val num"><input type="number" inputmode="decimal" step="0.1" aria-label="fore/aft slope"><u class="u"></u></div></div>
+        <button class="nudge" data-d="1">+</button></div>
+      <div class="srow" data-k="lr"><button class="nudge" data-d="-1">−</button>
+        <div class="mid"><div class="lab"><span class="k"></span><b class="desc"></b></div>
+          <div class="val num"><input type="number" inputmode="decimal" step="0.1" aria-label="side slope"><u class="u"></u></div></div>
+        <button class="nudge" data-d="1">+</button></div>`;
+    wrap.appendChild(z);
+    z.querySelector(".lvbtn").addEventListener("click", () => lvOpen(i));
+    z.querySelectorAll(".srow").forEach(row => {
+      const k = row.dataset.k, inp = row.querySelector("input");
+      row.querySelectorAll(".nudge").forEach(b => repeatable(b, () => {
+        const d = Number(b.dataset.d), stepU = state.unit === "deg" ? 0.1 : 0.1;
+        let shown = state.unit === "deg" ? state.zones[i][k] : degToPct(state.zones[i][k]);
+        shown = Math.round((shown + d * stepU) * 10) / 10;
+        const maxU = state.unit === "deg" ? SLOPE_MAX : degToPct(SLOPE_MAX);
+        shown = clamp(shown, -maxU, maxU);
+        state.zones[i][k] = state.unit === "deg" ? shown : pctToDeg(shown);
+        update();
+      }));
+      inp.addEventListener("input", e => {
+        const v = Number(e.target.value); if (!Number.isFinite(v)) return;
+        const maxU = state.unit === "deg" ? SLOPE_MAX : degToPct(SLOPE_MAX);
+        const c = clamp(v, -maxU, maxU);
+        state.zones[i][k] = state.unit === "deg" ? c : pctToDeg(c);
+        update("zone" + i + k);
+      });
+      inp.addEventListener("blur", () => update());
+    });
+  }
+  const sp = $("splits");
+  sp.innerHTML = `<label id="sp1row"><span data-t="split1"></span><input type="range" id="sp1" min="10" max="85" step="1"><b class="num"></b></label>
+                  <label id="sp2row"><span data-t="split2"></span><input type="range" id="sp2" min="15" max="90" step="1"><b class="num"></b></label>`;
+  $("sp1").addEventListener("input", e => { state.sp1 = Number(e.target.value); if (state.sp2 < state.sp1 + 5) state.sp2 = state.sp1 + 5; update("sp1"); });
+  $("sp2").addEventListener("input", e => { state.sp2 = Number(e.target.value); if (state.sp1 > state.sp2 - 5) state.sp1 = state.sp2 - 5; update("sp2"); });
+}
+
+function syncZones(skip) {
+  const u = state.unit === "deg" ? "°" : "%";
+  document.querySelectorAll("#zones .zone").forEach(z => {
+    const i = Number(z.dataset.i), on = i < state.nz;
+    z.hidden = !on;
+    z.querySelector(".zn").textContent = state.nz === 1 ? tr("zone1") : tr("zone")[i];
+    const a = i === 0 ? 0 : i === 1 ? state.sp1 : state.sp2, b = i === state.nz - 1 ? 100 : i === 0 ? state.sp1 : state.sp2;
+    z.querySelector(".zr").textContent = state.nz === 1 ? "" : `${a}%–${b}%`;
+    z.querySelector(".lvbtn").textContent = tr("lv_btn");
+    z.querySelectorAll(".srow").forEach(row => {
+      const k = row.dataset.k, deg = state.zones[i][k], shown = state.unit === "deg" ? deg : degToPct(deg);
+      row.querySelector(".k").textContent = tr(k);
+      const desc = k === "fb" ? (Math.abs(deg) < 0.05 ? tr("flat") : deg > 0 ? "↑ " + tr("up") : "↓ " + tr("down"))
+                              : (Math.abs(deg) < 0.05 ? tr("brk_0") : deg > 0 ? tr("brk_r") + " ↷" : "↶ " + tr("brk_l"));
+      row.querySelector(".desc").textContent = desc;
+      row.querySelector(".u").textContent = u;
+      const inp = row.querySelector("input");
+      if (skip !== "zone" + i + k) inp.value = fmt(shown, 1);
+    });
+  });
+  $("sp1row").hidden = state.nz < 2; $("sp2row").hidden = state.nz < 3;
+  if (skip !== "sp1") $("sp1").value = state.sp1; if (skip !== "sp2") $("sp2").value = state.sp2;
+  $("sp1row").querySelector("b").textContent = state.sp1 + "%"; $("sp2row").querySelector("b").textContent = state.sp2 + "%";
+  $("sp1row").querySelector("span").textContent = tr("split1"); $("sp2row").querySelector("span").textContent = tr("split2");
+}
+
+/* ── Model evaluation (cached against inputs) ───────────────────────── */
+let model = null, modelKey = "";
+function evaluate() {
+  const key = JSON.stringify([state.dist, state.stimp, state.nz, state.zones.slice(0, state.nz), state.sp1, state.sp2, state.skill, state.cal]);
+  if (key === modelKey) return;
+  modelKey = key;
+  CAL_CM_PER_10FT = state.cal;
+  const g = makeGreen(state.zones.slice(0, state.nz), state.sp1 / 100, state.sp2 / 100, state.dist);
+  const rec = solveAimWindow(g, state.stimp);
+  let disp = null, path = null, straightBack = recommendBack(g, state.stimp, 0);
+  if (rec) {
+    path = simulate(g, state.stimp, aimCmToDeg(rec.aim, g.dist), rec.back, true);
+    if (rec.holes) { const [ps, as] = SKILLS[state.skill]; disp = dispersion(g, state.stimp, rec.aim, rec.back, 120, ps, as); }
+  } else if (straightBack !== null) {
+    path = simulate(g, state.stimp, 0, straightBack, true);
+  }
+  // Equivalent flat length: how far this stroke rolls on level stimp-8 turf
+  const playAs = rec ? rec.back * calScale() : (straightBack !== null ? straightBack * calScale() : null);
+  model = { g, rec, disp, path, straightBack, playAs };
+}
+function evaluateWhatIf() {
+  if (!model || state.whatif === null) return null;
+  const a = aimCmToDeg(state.whatif, model.g.dist), back = recommendBack(model.g, state.stimp, a);
+  if (back === null) return { none: true };
+  return { back, sim: simulate(model.g, state.stimp, a, back, true) };
+}
+
+/* ── Read panel ─────────────────────────────────────────────────────── */
+function tile(cls, k, v, s) { return `<div class="tile ${cls}"><div class="k">${k}</div><div class="v num${cls === "rate" ? " " + rateClass(v) : ""}">${v === null ? "—" : v}</div><div class="s">${s || ""}</div></div>`; }
+function rateClass(pct) { const n = parseInt(pct, 10); return n >= 50 ? "good" : n >= 20 ? "warn" : "bad"; }
+function renderRead() {
+  const r = $("read"), m = model;
+  if (!m.rec && m.straightBack === null) { r.innerHTML = `<div class="note alert">${tr("runaway")}</div>`; return; }
+  const rec = m.rec;
+  const back = rec ? rec.back : m.straightBack;
+  let aimV, aimS = "", note = "", noteCls = "note";
+  if (!rec) { aimV = tr("straight"); note = tr("no_line"); noteCls += " alert"; }
+  else if (Math.abs(rec.aim) < 1.5) { aimV = tr("straight"); }
+  else { aimV = `${fmt(Math.abs(rec.aim))}<u>cm ${rec.aim < 0 ? tr("left") : tr("right")}</u>`; aimS = tr("cups", { n: (Math.abs(rec.aim) / 10.8).toFixed(1) }); }
+  if (rec && !rec.holes) { note = tr("too_fast"); noteCls += " alert"; }
+  else if (rec) {
+    const half = fmt((rec.hi - rec.lo) / 2);
+    let range;
+    if (rec.lo < 0 && rec.hi > 0) range = `${tr("left")} ${fmt(-rec.lo)} – ${tr("right")} ${fmt(rec.hi)} cm`;
+    else { const lo = Math.abs(rec.lo), hi = Math.abs(rec.hi); range = `${fmt(Math.min(lo, hi))}–${fmt(Math.max(lo, hi))} cm ${rec.hi <= 0 ? tr("left") : tr("right")}`; }
+    note = tr("window", { n: half, r: range });
+  }
+  let makeV = null, makeS = "", meter = "";
+  if (m.disp) {
+    const pct = Math.round(m.disp.make * 100); makeV = pct + "<u>%</u>";
+    makeS = tr("leave", { n: m.disp.leave.toFixed(1) });
+    if (m.disp.threePutt > 0.02) makeS += "<br>" + tr("threeputt", { n: Math.round(m.disp.threePutt * 100) });
+    const lit = Math.round(m.disp.make * 20), cls = rateClass(pct);
+    meter = `<div class="meter ${cls}">${Array.from({ length: 20 }, (_, i) => `<span class="${i < lit ? "on" : ""}"></span>`).join("")}</div>`;
+  }
+  r.innerHTML = tile("back", tr("back"), `${fmt(back)}<u>cm</u>`, m.playAs !== null ? tr("playas", { n: fmt(m.playAs, 1) }) : "")
+    + tile("aim", tr("aim"), aimV, aimS)
+    + tile("rate", tr("make"), makeV, makeS)
+    + meter + `<div class="${noteCls}">${note}</div>`;
+}
+
+/* ── Map ────────────────────────────────────────────────────────────── */
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function drawMap(wi) {
+  const cv = $("map"), dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const W = cv.clientWidth || 480, Hh = Math.round(W * 1.25);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr); cv.style.height = Hh + "px";
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const m = model, g = m.g, dist = g.dist;
+  const th = cssVar("--turf-h"), ts = cssVar("--turf-s"), tl = parseFloat(cssVar("--turf-l"));
+  const ink = cssVar("--ink"), dim = cssVar("--dim"), aimC = cssVar("--aim"), aimSoft = cssVar("--aim-soft"), pathC = cssVar("--path"), halo = cssVar("--path-halo");
+
+  // world extents (ft): y up toward the hole
+  const pxs = [0], pys = [0, dist];
+  const addPath = p => { if (!p) return; for (let i = 0; i < p.xs.length; i += 4) { pxs.push(p.xs[i]); pys.push(p.ys[i]); } pxs.push(p.stop[0]); pys.push(p.stop[1]); };
+  addPath(m.path); if (wi && wi.sim) addPath(wi.sim);
+  if (m.rec) { pxs.push(m.rec.aim / 30.48, m.rec.lo / 30.48, m.rec.hi / 30.48); }
+  if (state.whatif !== null) pxs.push(state.whatif / 30.48);
+  let xmin = Math.min(-1.2, Math.min(...pxs) - 1.0), xmax = Math.max(1.2, Math.max(...pxs) + 1.0);
+  let ymin = Math.min(-1.0, Math.min(...pys) - 0.6), ymax = Math.max(dist + Math.max(1.6, dist * 0.12), Math.max(...pys) + 0.8);
+  const padL = 30, padR = 8, padT = 8, padB = 8;
+  const iw = W - padL - padR, ih = Hh - padT - padB;
+  const sy = ih / (ymax - ymin);
+  let sx = sy, stretch = 1;
+  if ((xmax - xmin) * sy <= iw) { const extra = (iw / sy - (xmax - xmin)) / 2; xmin -= extra; xmax += extra; }
+  else { sx = iw / (xmax - xmin); stretch = sx / sy; }
+  const X = x => padL + (x - xmin) * sx, Y = y => padT + (ymax - y) * sy;
+
+  // turf shading by elevation
+  const cell = 4;
+  const rows = g.heightRows(ymin, ymax, (ymax - ymin) / Math.ceil(ih / cell));
+  let hmin = Infinity, hmax = -Infinity;
+  const cols = Math.ceil(iw / cell);
+  const hv = new Float32Array(rows.length * cols);
+  for (let r = 0; r < rows.length; r++) for (let c = 0; c < cols; c++) {
+    const x = xmin + (c + 0.5) * cell / sx, h = x * rows[r].sx + rows[r].hfb;
+    hv[r * cols + c] = h; if (h < hmin) hmin = h; if (h > hmax) hmax = h;
+  }
+  const span = Math.max(hmax - hmin, 0.02);
+  ctx.fillStyle = `hsl(${th} ${ts} ${tl}%)`; ctx.fillRect(0, 0, W, Hh);
+  for (let r = 0; r < rows.length; r++) for (let c = 0; c < cols; c++) {
+    const n = (hv[r * cols + c] - hmin) / span - 0.5;      // -0.5 low .. +0.5 high
+    ctx.fillStyle = `hsl(${th} ${ts} ${(tl + n * 22).toFixed(1)}%)`;
+    const yy = Y(rows[r].y);
+    ctx.fillRect(padL + c * cell, yy - (sy * (rows[1].y - rows[0].y)) - 0.5, cell + 0.5, sy * (rows[1].y - rows[0].y) + 1);
+  }
+  // contour lines: every 1/6 of the height span, traced per column by sign change
+  if (span > 0.03) {
+    ctx.strokeStyle = "rgba(255,255,255,.28)"; ctx.lineWidth = 1;
+    for (let k = 1; k < 6; k++) {
+      const lvl = hmin + span * k / 6;
+      ctx.beginPath();
+      for (let c = 0; c < cols; c++) {
+        for (let r = 1; r < rows.length; r++) {
+          const a = hv[(r - 1) * cols + c] - lvl, b = hv[r * cols + c] - lvl;
+          if (a * b < 0) { const f = a / (a - b); const yy = Y(rows[r - 1].y + f * (rows[r].y - rows[r - 1].y)); ctx.moveTo(padL + c * cell, yy); ctx.lineTo(padL + (c + 1) * cell, yy); }
+        }
+      }
+      ctx.stroke();
+    }
+  }
+  // distance ticks
+  const tick = dist > 30 ? 10 : dist > 12 ? 5 : 1;
+  ctx.fillStyle = "rgba(255,255,255,.75)"; ctx.font = "600 10px Barlow Condensed, Arial Narrow, sans-serif"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (let y = 0; y <= ymax; y += tick) { ctx.fillRect(padL - 6, Y(y), 6, 1); ctx.fillText(y + "", padL - 8, Y(y)); }
+  ctx.fillText("ft", padL - 8, Y(ymax) + 8);
+  // zone splits + fall-line arrows
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1;
+  const splitsY = [state.nz >= 2 ? g.sp1 * dist : null, state.nz >= 3 ? g.sp2 * dist : null].filter(v => v !== null);
+  for (const s of splitsY) { ctx.beginPath(); ctx.moveTo(padL, Y(s)); ctx.lineTo(W - padR, Y(s)); ctx.stroke(); }
+  ctx.setLineDash([]);
+  const bounds = [0, ...splitsY, dist];
+  for (let i = 0; i < state.nz; i++) {
+    const yc = (bounds[i] + bounds[i + 1]) / 2, z = state.zones[i];
+    const mag = Math.hypot(Math.tan(z.fb * Math.PI / 180), Math.tan(z.lr * Math.PI / 180)) * 100;
+    if (mag < 0.15) continue;
+    const gr = g.slopeAt(0, yc), dx = -gr[0], dy = -gr[1], L = Math.hypot(dx, dy);
+    const ax = X(xmin + (xmax - xmin) * 0.86), ay = Y(yc), len = 22;
+    const ex = ax + dx / L * len, ey = ay - dy / L * len;
+    ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey); ctx.stroke();
+    const ang = Math.atan2(ey - ay, ex - ax);
+    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - 7 * Math.cos(ang - 0.5), ey - 7 * Math.sin(ang - 0.5)); ctx.lineTo(ex - 7 * Math.cos(ang + 0.5), ey - 7 * Math.sin(ang + 0.5)); ctx.closePath(); ctx.fill();
+    ctx.font = "700 11px Barlow Condensed, Arial Narrow, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText(mag.toFixed(1) + "%", ax, ay + 14);
+  }
+  // make window + aim line
+  const hx = X(0), hy = Y(dist);
+  if (m.rec && m.rec.holes) {
+    const x0 = X(m.rec.lo / 30.48), x1 = X(m.rec.hi / 30.48);
+    ctx.fillStyle = aimSoft; ctx.fillRect(Math.min(x0, x1), hy - 9, Math.abs(x1 - x0), 18);
+    ctx.strokeStyle = aimC; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x0, hy - 9); ctx.lineTo(x0, hy + 9); ctx.moveTo(x1, hy - 9); ctx.lineTo(x1, hy + 9); ctx.stroke();
+  }
+  if (m.rec) {
+    const ax = X(m.rec.aim / 30.48);
+    ctx.setLineDash([5, 5]); ctx.strokeStyle = aimC; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(ax, hy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = aimC; ctx.beginPath(); ctx.moveTo(ax, hy - 7); ctx.lineTo(ax + 6, hy); ctx.lineTo(ax, hy + 7); ctx.lineTo(ax - 6, hy); ctx.closePath(); ctx.fill();
+  }
+  // what-if path
+  const drawPath = (p, color, dash, width) => {
+    if (!p || p.xs.length < 2) return;
+    ctx.setLineDash(dash); ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.strokeStyle = halo; ctx.lineWidth = width + 2; ctx.beginPath();
+    for (let i = 0; i < p.xs.length; i++) { const x = X(p.xs[i]), y = Y(p.ys[i]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); ctx.setLineDash([]);
+    if (!p.holed) { const x = X(p.stop[0]), y = Y(p.stop[1]); ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5); ctx.moveTo(x + 5, y - 5); ctx.lineTo(x - 5, y + 5); ctx.stroke(); }
+  };
+  if (wi && wi.sim) drawPath(wi.sim, "rgba(255,255,255,.85)", [3, 5], 2);
+  drawPath(m.path, pathC, [], 3);
+  // hole and ball
+  ctx.fillStyle = "#0b0f0c"; ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.ellipse(hx, hy, Math.max(HOLE_R_FT * sx, 4), Math.max(HOLE_R_FT * sy, 4), 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#ffffff"; ctx.strokeStyle = halo; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(X(0), Y(0), 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  $("lg-stretch").textContent = stretch > 1.05 ? tr("stretch", { n: stretch.toFixed(1) }) : "";
+  $("lg-wi").hidden = !(wi && wi.sim);
+}
+
+/* ── What-if panel ──────────────────────────────────────────────────── */
+function renderWhatIf(wi) {
+  const v = $("wi-v"), res = $("wi-res");
+  const cm = state.whatif === null ? (model.rec ? model.rec.aim : 0) : state.whatif;
+  $("wirange").value = Math.round(cm);
+  v.innerHTML = Math.abs(cm) < 0.5 ? tr("straight") : `${fmt(Math.abs(cm))}<u>cm ${cm < 0 ? tr("left") : tr("right")}</u>`;
+  $("wi-reset").hidden = state.whatif === null;
+  if (state.whatif === null || !wi) { res.textContent = ""; res.className = "res"; return; }
+  if (wi.none) { res.textContent = tr("wi_none"); res.className = "res miss"; return; }
+  if (wi.sim.holed) { res.textContent = tr("wi_hit", { b: fmt(wi.back) }); res.className = "res hit"; }
+  else { res.textContent = tr("wi_miss", { n: fmt(wi.sim.closest * 100), b: fmt(wi.back) }); res.className = "res miss"; }
+}
+
+/* ── Sync + update ──────────────────────────────────────────────────── */
+function syncInputs(skip) {
+  if (skip !== "dist") { $("dv").value = state.dist; $("drange").value = state.dist; }
+  $("dist-m").textContent = (state.dist * 0.3048).toFixed(1) + " m";
+  if (skip !== "stimp") { $("gv").value = state.stimp.toFixed(1); $("grange").value = state.stimp; }
+  document.querySelectorAll("#unitseg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.u === state.unit)));
+  document.querySelectorAll("#nzseg button").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.n) === state.nz)));
+  document.querySelectorAll("#skill button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === state.skill)));
+  const [ps, as] = SKILLS[state.skill]; $("skill-hint").textContent = tr("sk_hint", { p: Math.round(ps * 100), a: as });
+  $("cal").value = state.cal; $("ov-v").textContent = P.OVERROLL.toFixed(1) + " ft";
+  $("flipfb").checked = !!state.lvl.flipFb; $("fliplr").checked = !!state.lvl.flipLr;
+  $("lang-zh").setAttribute("aria-pressed", String(state.lang === "zh")); $("lang-en").setAttribute("aria-pressed", String(state.lang === "en"));
+  document.documentElement.lang = state.lang === "zh" ? "zh-Hant" : "en";
+  document.querySelectorAll("[data-t]").forEach(el => { const k = el.dataset.t; if (STR[state.lang][k] !== undefined) el.textContent = STR[state.lang][k]; });
+  document.querySelectorAll("#skill button").forEach(b => b.textContent = tr("sk_" + b.dataset.s));
+  $("fine").innerHTML = tr("fine");
+  syncZones(skip);
+}
+
+let pending = null;
+function update(skip) {
+  syncInputs(skip); persist();
+  clearTimeout(pending);
+  pending = setTimeout(() => { evaluate(); const wi = evaluateWhatIf(); renderRead(); renderWhatIf(wi); drawMap(wi); }, 60);
+}
+function updateWhatIf() { persist(); const wi = evaluateWhatIf(); renderWhatIf(wi); drawMap(wi); }
+
+/* ── Level: the phone's tilt sensor fills a zone ─────────────────────
+   DeviceOrientation beta is rotation about the phone's left-right axis
+   (positive = top edge raised) and gamma about its long axis (positive =
+   right edge lowered).  With the top of the phone pointing at the hole,
+   beta is the fore/aft slope (+ uphill) and gamma the side slope (+ left
+   side high, ball breaks right) in this project's sign convention.  A
+   zero offset taken on a known-level surface removes the camera bump and
+   case; sign flips in Settings cover a sensor that reads the other way.
+   Capture is automatic: the phone is tapped nowhere while it lies on the
+   turf, it just has to stay still for LV_WIN seconds. */
+if (!state.lvl || typeof state.lvl !== "object") state.lvl = { zero: null, flipFb: false, flipLr: false };
+const LV_WIN = 1.5, LV_STILL = 0.25, LV_MOVE = 2.5;
+const LV = { on: false, listening: false, target: 0, buf: [], armed: false, needLift: false, zeroing: false,
+             lockedAt: null, lifted: false, done: [false, false, false], watchdog: null, ac: null, got: false };
+// A copy of this page served top-level over https (not inside the claude.ai
+// frame).  iOS and Chrome withhold the tilt sensor from cross-origin frames,
+// so the sheet offers this link when it detects it is framed.  Empty = none yet.
+const LV_DIRECT_URL = "https://cychengithub.github.io/putt-caddie/";
+const LV_FRAMED = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+
+function lvOpen(i) {
+  LV.on = true; LV.done = [false, false, false]; LV.lockedAt = null; LV.got = false;
+  $("lv").hidden = false;
+  try { LV.ac = LV.ac || new (window.AudioContext || window.webkitAudioContext)(); LV.ac.resume && LV.ac.resume(); } catch (e) {}
+  lvArm(i, false, false);
+  const fail = msg => { LV.armed = false; lvStatus(msg, "bad"); lvDirectLink(); };
+  if (LV.listening) { lvWatchdog(); return; }
+  if (!window.isSecureContext) return fail(tr("lv_https"));
+  if (typeof DeviceOrientationEvent === "undefined") return fail(tr("lv_nosensor"));
+  const attach = () => { window.addEventListener("deviceorientation", lvOnEvent); LV.listening = true; lvWatchdog(); };
+  if (typeof DeviceOrientationEvent.requestPermission === "function") {
+    // Must be called inside the tap that opened the sheet, before any await.
+    // Inside a cross-origin frame iOS may never answer, so give it a deadline.
+    let settled = false;
+    const timer = setTimeout(() => { if (!settled) { settled = true; fail(LV_FRAMED ? tr("lv_framed") : tr("lv_denied")); } }, 4000);
+    lvStatus(tr("lv_asking"), "");
+    DeviceOrientationEvent.requestPermission().then(
+      r => { if (settled) return; settled = true; clearTimeout(timer); if (r === "granted") attach(); else fail(LV_FRAMED ? tr("lv_framed") : tr("lv_denied")); },
+      e => { if (settled) return; settled = true; clearTimeout(timer); fail((LV_FRAMED ? tr("lv_framed") : tr("lv_denied")) + " (" + (e && e.message || e) + ")"); });
+  } else attach();
+}
+// Offer the top-level copy of the page when one exists and we are framed.
+function lvDirectLink() {
+  const el = $("lv-direct");
+  el.hidden = !(LV_DIRECT_URL && LV_FRAMED);
+  if (!el.hidden) { el.href = LV_DIRECT_URL; el.textContent = tr("lv_open_direct"); }
+}
+function lvClose() { LV.on = false; LV.armed = false; $("lv").hidden = true; clearTimeout(LV.watchdog); }
+function lvWatchdog() {
+  clearTimeout(LV.watchdog);
+  LV.watchdog = setTimeout(() => { if (LV.on && !LV.got) { lvStatus(LV_FRAMED ? tr("lv_framed") : tr("lv_nodata"), "bad"); lvDirectLink(); } }, 3000);
+}
+function lvArm(i, needLift, zeroing) {
+  LV.target = i; LV.armed = true; LV.needLift = needLift; LV.zeroing = zeroing; LV.lifted = false; LV.buf = [];
+  lvStatus(tr("lv_wait"), ""); lvRender(null);
+}
+function lvZoneName(i) { return state.nz === 1 && i === 0 ? tr("zone1") : tr("zone")[i]; }
+function lvStatus(msg, cls) { const el = $("lv-status"); el.textContent = msg; el.className = "lvstatus " + (cls || ""); }
+function lvBeep() {
+  try {
+    const ac = LV.ac; if (!ac) return;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.value = 880; g.gain.value = 0.2; o.connect(g); g.connect(ac.destination);
+    o.start(); o.stop(ac.currentTime + 0.15);
+  } catch (e) {}
+}
+// Zero and flips applied to a raw {fb, lr}; returns degrees in the project's convention.
+function lvApply(r) {
+  const z = state.lvl.zero || { fb: 0, lr: 0 };
+  let fb = r.fb - z.fb, lr = r.lr - z.lr;
+  if (state.lvl.flipFb) fb = -fb;
+  if (state.lvl.flipLr) lr = -lr;
+  return { fb, lr };
+}
+function lvStill() {
+  const b = LV.buf, n = b.length;
+  if (n < 8) return { ready: false, frac: 0, fb: NaN, lr: NaN };
+  const last = b[n - 1];
+  // Walk back from the newest sample to the last one that still differed
+  // from it; only the still tail after that point is averaged, so the
+  // moment the phone was set down never drags the reading.
+  let first = 0, since = b[0].t;
+  for (let k = n - 1; k >= 0; k--) {
+    if (Math.abs(b[k].fb - last.fb) > LV_STILL || Math.abs(b[k].lr - last.lr) > LV_STILL) { first = k + 1; since = b[k].t; break; }
+  }
+  let cnt = 0, sfb = 0, slr = 0;
+  for (let k = first; k < n; k++) { sfb += b[k].fb; slr += b[k].lr; cnt++; }
+  const dur = (last.t - since) / 1000, frac = Math.min(1, dur / LV_WIN);
+  return { ready: frac >= 1 && cnt >= 8, frac, fb: sfb / cnt, lr: slr / cnt };
+}
+function lvOnEvent(ev) {
+  if (!LV.on || ev.beta === null || ev.gamma === null) return;
+  LV.got = true;
+  const now = performance.now();
+  LV.buf.push({ t: now, fb: ev.beta, lr: ev.gamma });
+  while (LV.buf.length && now - LV.buf[0].t > (LV_WIN + 0.6) * 1000) LV.buf.shift();
+  // After an automatic advance the phone must be picked up first, so a
+  // phone left lying on the previous zone never records twice.
+  if (LV.lockedAt && (Math.abs(ev.beta - LV.lockedAt.fb) > LV_MOVE || Math.abs(ev.gamma - LV.lockedAt.lr) > LV_MOVE)) LV.lifted = true;
+  const st = lvStill();
+  if (LV.armed && st.ready && (!LV.needLift || LV.lifted)) lvLock(st);
+  else lvRender(st);
+}
+function lvLock(st) {
+  LV.armed = false; LV.lockedAt = { fb: st.fb, lr: st.lr };
+  lvBeep();
+  if (LV.zeroing) {
+    state.lvl.zero = { fb: st.fb, lr: st.lr }; persist();
+    lvStatus(tr("lv_zeroed"), "ok"); lvRender(st); return;
+  }
+  const v = lvApply(st), i = LV.target;
+  const z = { fb: clamp(Math.round(v.fb * 10) / 10, -SLOPE_MAX, SLOPE_MAX), lr: clamp(Math.round(v.lr * 10) / 10, -SLOPE_MAX, SLOPE_MAX) };
+  if (i >= state.nz) { for (let k = state.nz; k <= i; k++) state.zones[k] = { ...state.zones[k - 1] }; state.nz = i + 1; }
+  state.zones[i] = z; LV.done[i] = true;
+  update();
+  const u = state.unit === "deg" ? "°" : "%", show = d => fmt(state.unit === "deg" ? d : degToPct(d), 1) + u;
+  const msg = tr("lv_locked", { z: lvZoneName(i), fb: show(z.fb), lr: show(z.lr) });
+  if (i + 1 < state.nz) { lvArm(i + 1, true, false); lvStatus(msg, "ok"); }
+  else lvStatus(msg + " " + tr("lv_all_done"), "ok");
+  lvRender(st);
+}
+function lvRender(st) {
+  const u = state.unit === "deg" ? "°" : "%";
+  const chips = $("lv-chips").querySelectorAll("button");
+  chips.forEach(b => {
+    const k = Number(b.dataset.i);
+    b.textContent = (state.nz === 1 && k === 0) ? tr("zone1") : tr("zone")[k].split(" ·")[0];
+    b.setAttribute("aria-pressed", String(k === LV.target));
+    b.classList.toggle("done", LV.done[k]);
+  });
+  const zn = lvZoneName(LV.target);
+  $("lv-hint").textContent = LV.zeroing ? tr("lv_hint_zero") : LV.needLift ? tr("lv_hint_lift", { z: zn }) : tr("lv_hint", { z: zn });
+  const last = LV.buf[LV.buf.length - 1];
+  const live = last ? lvApply(last) : null;
+  $("lv-fbu").textContent = u; $("lv-lru").textContent = u;
+  const dot = $("lv-dot");
+  if (live) {
+    const sfb = state.unit === "deg" ? live.fb : degToPct(live.fb), slr = state.unit === "deg" ? live.lr : degToPct(live.lr);
+    $("lv-fb").textContent = (sfb >= 0 ? "+" : "") + fmt(sfb, 1);
+    $("lv-lr").textContent = (slr >= 0 ? "+" : "") + fmt(slr, 1);
+    $("lv-fbd").textContent = Math.abs(live.fb) < 0.05 ? tr("flat") : live.fb > 0 ? "↑ " + tr("up") : "↓ " + tr("down");
+    $("lv-lrd").textContent = Math.abs(live.lr) < 0.05 ? tr("brk_0") : live.lr > 0 ? tr("brk_r") + " ↷" : "↶ " + tr("brk_l");
+    // Bubble drifts to the high side, like a bull's-eye level.
+    const k = 9, r = Math.hypot(live.lr, live.fb) * k, s = r > 36 ? 36 / r : 1;
+    dot.style.transform = `translate(${(-live.lr * k * s).toFixed(1)}px, ${(-live.fb * k * s).toFixed(1)}px)`;
+  } else {
+    $("lv-fb").textContent = "—"; $("lv-lr").textContent = "—"; $("lv-fbd").textContent = ""; $("lv-lrd").textContent = "";
+    dot.style.transform = "";
+  }
+  const frac = st ? st.frac : 0;
+  $("lv-bar").style.width = Math.round(frac * 100) + "%";
+  dot.classList.toggle("ok", frac >= 1);
+  if (LV.armed) {
+    const el = $("lv-status");
+    if (!LV.got) el.textContent = tr("lv_nodata_yet");
+    else if (LV.needLift && !LV.lifted) { /* keep the "zone set" line until the phone moves */ }
+    else el.textContent = frac < 0.15 ? tr("lv_moving") : tr("lv_wait");
+  }
+  const z = state.lvl.zero, zi = $("lv-zinfo");
+  zi.innerHTML = "";
+  zi.append(z ? tr("lv_zinfo", { fb: (z.fb >= 0 ? "+" : "") + fmt(z.fb, 2), lr: (z.lr >= 0 ? "+" : "") + fmt(z.lr, 2) }) : tr("lv_nozero"));
+  if (z) { const c = document.createElement("button"); c.type = "button"; c.textContent = tr("lv_clear"); c.addEventListener("click", () => { state.lvl.zero = null; persist(); lvRender(st); }); zi.append(c); }
+  $("lv-tip").textContent = tr("lv_tip");
+  $("lv-diag").textContent = tr("lv_diag", { s: window.isSecureContext ? "✓" : "✗", f: LV_FRAMED ? tr("yes") : tr("no"),
+    p: typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function" ? "iOS" : "—",
+    n: LV.got ? "✓" : "✗" });
+  document.querySelectorAll("#lv [data-t]").forEach(el => { const k = el.dataset.t; if (STR[state.lang][k] !== undefined) el.textContent = STR[state.lang][k]; });
+}
+$("lv-close").addEventListener("click", lvClose);
+$("lv").addEventListener("click", e => { if (e.target === $("lv")) lvClose(); });
+$("lv-rearm").addEventListener("click", () => { LV.lockedAt = null; lvArm(LV.target, false, false); });
+$("lv-zero").addEventListener("click", () => { LV.lockedAt = null; lvArm(LV.target, false, true); });
+$("lv-chips").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { LV.lockedAt = null; lvArm(Number(b.dataset.i), false, false); }));
+$("flipfb").addEventListener("change", e => { state.lvl.flipFb = e.target.checked; persist(); });
+$("fliplr").addEventListener("change", e => { state.lvl.flipLr = e.target.checked; persist(); });
+
+/* ── Wire controls ──────────────────────────────────────────────────── */
+buildZones();
+repeatable($("dm"), () => { state.dist = clamp(Math.round((state.dist - 0.5) * 2) / 2, 2, 60); update(); });
+repeatable($("dp"), () => { state.dist = clamp(Math.round((state.dist + 0.5) * 2) / 2, 2, 60); update(); });
+$("drange").addEventListener("input", e => { state.dist = Number(e.target.value); update("dist"); });
+$("dv").addEventListener("input", e => { const v = Number(e.target.value); if (Number.isFinite(v) && v >= 2 && v <= 60) { state.dist = v; update("dist"); } });
+repeatable($("gm"), () => { state.stimp = clamp(Math.round((state.stimp - 0.1) * 10) / 10, 6, 14); update(); });
+repeatable($("gp"), () => { state.stimp = clamp(Math.round((state.stimp + 0.1) * 10) / 10, 6, 14); update(); });
+$("grange").addEventListener("input", e => { state.stimp = Number(e.target.value); update("stimp"); });
+$("gv").addEventListener("input", e => { const v = Number(e.target.value); if (Number.isFinite(v) && v >= 6 && v <= 14) { state.stimp = v; update("stimp"); } });
+document.querySelectorAll("#unitseg button").forEach(b => b.addEventListener("click", () => { state.unit = b.dataset.u; update(); }));
+document.querySelectorAll("#nzseg button").forEach(b => b.addEventListener("click", () => {
+  const n = Number(b.dataset.n);
+  // A newly revealed zone starts as a copy of its neighbour, so adding a
+  // zone never silently changes the read until the player edits it.
+  for (let i = state.nz; i < n; i++) state.zones[i] = { ...state.zones[i - 1] };
+  state.nz = n; update();
+}));
+$("wirange").addEventListener("input", e => { state.whatif = Number(e.target.value); updateWhatIf(); });
+$("wi-reset").addEventListener("click", () => { state.whatif = null; updateWhatIf(); });
+const skillWrap = $("skill");
+for (const s of ["tour", "good", "avg"]) { const b = document.createElement("button"); b.dataset.s = s; b.addEventListener("click", () => { state.skill = s; update(); }); skillWrap.appendChild(b); }
+$("cal").addEventListener("change", e => { const v = Number(e.target.value); if (Number.isFinite(v) && v >= 3 && v <= 40) { state.cal = v; update(); } });
+$("lang-zh").addEventListener("click", () => { state.lang = "zh"; update(); });
+$("lang-en").addEventListener("click", () => { state.lang = "en"; update(); });
+let rt = null;
+window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (model) drawMap(evaluateWhatIf()); }, 120); });
+if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { if (model) drawMap(evaluateWhatIf()); });
+new MutationObserver(() => { if (model) drawMap(evaluateWhatIf()); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+update();
+</script>
+<!-- ARTIFACT-BODY-END -->
+</body>
+</html>
