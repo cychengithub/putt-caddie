@@ -193,8 +193,9 @@
   .fine p { margin: 6px 0; }
 
   /* Level: the phone's own tilt sensor fills a zone's slope */
-  .zone h3 .zr-wrap { display: flex; align-items: center; gap: 8px; }
-  .zone h3 .lvbtn { padding: 4px 10px; font-size: 12px; font-weight: 700; color: var(--accent); border-color: var(--accent); }
+  .zone .lvbtn { display: block; width: 100%; margin-top: 10px; min-height: 48px; padding: 10px 12px; font-size: 16px; font-weight: 700;
+                 color: var(--accent); border: 1.5px solid var(--accent); background: transparent; border-radius: 10px; }
+  .zone .lvbtn:active { background: var(--accent); color: var(--accent-ink); }
   .lvsheet { position: fixed; inset: 0; z-index: 50; background: rgba(8, 14, 10, .55); display: flex; align-items: flex-end; justify-content: center; padding: 10px; }
   .lvsheet[hidden] { display: none; }
   .lvcard { width: 100%; max-width: 480px; max-height: 94vh; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
@@ -589,7 +590,7 @@ const STR = {
     split1: "第 1 段到", split2: "第 2 段到", of: "的距離",
     wi_hit: "進洞！後擺 {b} cm", wi_miss: "沒進，最近差洞 {n} cm（後擺 {b} cm）", wi_none: "這個瞄準點力道解不出來",
     sk_tour: "職業", sk_good: "穩定", sk_avg: "一般", sk_hint: "力道 ±{p}%・方向 ±{a}°",
-    lv_btn: "📐 量", lv_title: "用手機量坡度", lv_done: "完成", lv_rearm: "重量這段", lv_zero: "歸零", lv_clear: "清除",
+    lv_btn: "📐 用手機量這段的坡度", lv_title: "用手機量坡度", lv_done: "完成", lv_rearm: "重量這段", lv_zero: "歸零", lv_clear: "清除",
     lv_hint: "把手機平放在{z}的草皮上，機頂指向球洞，放手不要碰。靜止 1.5 秒會自動記錄並填入。",
     lv_hint_lift: "拿起手機，放到{z}，機頂指向球洞，放手不要碰。",
     lv_hint_zero: "把手機放在確定水平的桌面上，放手不要碰，靜止後就會歸零。",
@@ -624,7 +625,7 @@ const STR = {
     split1: "Zone 1 ends at", split2: "Zone 2 ends at", of: "of the length",
     wi_hit: "Drops. Backswing {b} cm", wi_miss: "Misses by {n} cm (backswing {b} cm)", wi_none: "No pace solves this aim",
     sk_tour: "Tour", sk_good: "Steady", sk_avg: "Average", sk_hint: "pace ±{p}% · line ±{a}°",
-    lv_btn: "📐 Level", lv_title: "Measure slope with the phone", lv_done: "Done", lv_rearm: "Re-measure", lv_zero: "Zero", lv_clear: "clear",
+    lv_btn: "📐 Measure this zone with the phone", lv_title: "Measure slope with the phone", lv_done: "Done", lv_rearm: "Re-measure", lv_zero: "Zero", lv_clear: "clear",
     lv_hint: "Lay the phone flat on the turf in {z}, top of the phone toward the hole, then let go. It records itself after 1.5 s of stillness.",
     lv_hint_lift: "Lift the phone, lay it on {z}, top toward the hole, and let go.",
     lv_hint_zero: "Lay the phone on a surface you know is level and let go. It zeroes once still.",
@@ -671,7 +672,7 @@ function buildZones() {
   const wrap = $("zones"); wrap.innerHTML = "";
   for (let i = 0; i < 3; i++) {
     const z = document.createElement("div"); z.className = "zone"; z.dataset.i = i;
-    z.innerHTML = `<h3><span class="zn"></span><span class="zr-wrap"><span class="zr"></span><button class="lvbtn" type="button"></button></span></h3>
+    z.innerHTML = `<h3><span class="zn"></span><span class="zr"></span></h3>
       <div class="srow" data-k="fb"><button class="nudge" data-d="-1">−</button>
         <div class="mid"><div class="lab"><span class="k"></span><b class="desc"></b></div>
           <div class="val num"><input type="number" inputmode="decimal" step="0.1" aria-label="fore/aft slope"><u class="u"></u></div></div>
@@ -679,7 +680,8 @@ function buildZones() {
       <div class="srow" data-k="lr"><button class="nudge" data-d="-1">−</button>
         <div class="mid"><div class="lab"><span class="k"></span><b class="desc"></b></div>
           <div class="val num"><input type="number" inputmode="decimal" step="0.1" aria-label="side slope"><u class="u"></u></div></div>
-        <button class="nudge" data-d="1">+</button></div>`;
+        <button class="nudge" data-d="1">+</button></div>
+      <button class="lvbtn" type="button"></button>`;
     wrap.appendChild(z);
     z.querySelector(".lvbtn").addEventListener("click", () => lvOpen(i));
     z.querySelectorAll(".srow").forEach(row => {
